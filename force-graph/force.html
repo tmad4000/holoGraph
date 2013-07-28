@@ -1,6 +1,9 @@
 <!DOCTYPE html>
 <meta charset="utf-8">
-<style>
+<head>
+  <script src="http://d3js.org/d3.v3.min.js"></script>
+
+  <style>
 
 .node {
   stroke: #fff;
@@ -11,10 +14,11 @@
   stroke: #999;
   stroke-opacity: .6;
 }
-
-</style>
-<body>
-<script src="http://d3js.org/d3.v3.min.js"></script>
+  </style>
+</head>
+<body style="background-color:black">
+<div id="chart" style="border:1px solid gray; float:left;background:black">
+</div>
 <script>
 
 var width = 960,
@@ -31,18 +35,32 @@ var force = d3.layout.force()
     .linkDistance(50)
     .size([width, height]);
 
-var svg = d3.select("body").append("svg")
+
+var svgContainer = d3.select("#chart").append("svg")
       .attr("width", width)
       .attr("height", height)
-    .append("svg:g")
-      .call(d3.behavior.zoom().on("zoom", translateSvg))
-    .append("svg:g");
+    .attr("pointer-events", "all")
+  .append('svg:g')
+    .call(d3.behavior.zoom().on("zoom", redraw))
 
-d3.select("body").onmousemove = function() {
+var svgG = svgContainer.append("svg:g");
+
+
+/*d3.select("body").onmousemove = function() {
   console.log("movement");
-}
+}*/
 
-svg.on("mousemove", function() {
+/*svg.append("circle")
+                          .attr("cx", width/2)
+                         .attr("cy", height/2)
+                         .attr("r", 20)
+                         .style("fill","rgb(255,0,0)");
+                         */
+
+drawXHairs(width/2,height/2);
+
+
+svgG.on("mousemove", function() {
   var d=this;
   //console.log(d)
   return;
@@ -52,7 +70,7 @@ svg.on("mousemove", function() {
   var dx = d.x - x_center;
   var dy = d.y - y_center;
 
-  svg.selectAll('.node')
+  svgG.selectAll('.node')
     .update()
       .attr('cx', function(curr) { return curr.x - dx }) // x attribute
       .attr('cy', function(curr) { return curr.y - dy })
@@ -65,13 +83,13 @@ d3.json("data.json", function(error, graph) {
       .links(graph.links)
       .start();
 
-  var link = svg.selectAll(".link")
+  var link = svgG.selectAll(".link")
       .data(graph.links)
     .enter().append("line")
       .attr("class", "link")
       .style("stroke-width", function(d) { return Math.sqrt(d.value); });
 
-  var node = svg.selectAll(".node")
+  var node = svgG.selectAll(".node")
       .data(graph.nodes)
     .enter().append("circle")
       .on("mouseover", translate)
@@ -91,33 +109,60 @@ d3.json("data.json", function(error, graph) {
 
     node.attr("cx", function(d) { return d.x; })
         .attr("cy", function(d) { return d.y; });
-
-    translateSvg();
   });
+
 });
+
+
+function drawXHairs(x,y) {
+
+svgContainer.append("line")
+                        .attr("x1", x)
+                        .attr("x2", x)
+                        .attr("y1", y-10)
+                        .attr("y2", y+10)
+                        .attr("stroke-width", 2)
+                        .attr("stroke", "red");
+svgContainer.append("line")
+                        .attr("x1", x+10)
+                        .attr("x2", x-10)
+                        .attr("y1", y)
+                        .attr("y2", y)
+                        .attr("stroke-width", 2)
+                        .attr("stroke", "red");
+}
 
 function translate() {
   // pan that node to the center
   var x = this.cx.animVal.value, y = this.cy.animVal.value;
-  var dx = x - width/2, dy = y - height/2;
-  pan[0] += dx;
-  pan[1] += dy;
+  pan[0] = -x;
+  pan[1] = -y;
+  console.log(width/2,height/2)
+  console.log(x,y)
+ // drawXHairs(x,y)
+  redraw();
 }
 
-function translateSvg() {
+function redraw() {
   if(d3.event.translate){
     // zoom
     trans = d3.event.translate;
     scale = d3.event.scale;
   }
+  console.log(scale);
   var translate = [
-    trans[0] + pan[0],
-    trans[1] + pan[1]
+     pan[0] + width/scale/2,
+    pan[1] + height/scale/2
   ];
 
-  svg.attr("transform",
+  svgG.transition().attr("transform",
+      "scale(" + scale + ") "
+      + "translate(" + translate + ")");
+  /*
+  svgContainer.transition().attr("transform",
       "translate(" + translate + ")"
       + " scale(" + scale + ")");
+      */
 }
 
 </script>
