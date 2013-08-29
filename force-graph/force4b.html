@@ -2,9 +2,6 @@
 <meta charset="utf-8">
 <head>
   <script src="http://d3js.org/d3.v3.min.js"></script>
-  <script src="http://code.jquery.com/jquery-1.10.1.min.js"></script>
-  <script src="http://code.jquery.com/jquery-migrate-1.2.1.min.js"></script>
-  <script src="http://js.leapmotion.com/0.2.0-beta6/leap.js"></script>
 
   <style>
 
@@ -22,6 +19,8 @@
 <body style="background-color:black">
 <div id="chart" style="border:1px solid gray; float:left;background:black">
 </div>
+
+<script type="text/javascript" src="fisheye.js"></script> 
 <script>
 
 var width = 960,
@@ -31,6 +30,11 @@ var pan = [0, 0]; // pan to a node
 var trans = [0, 0]; // translation from zooming
 var scale = 1;
 
+
+var fisheye = d3.fisheye()
+    .radius(50)
+    .power(2);
+
 var color = d3.scale.category20();
 
 var force = d3.layout.force()
@@ -38,16 +42,38 @@ var force = d3.layout.force()
     .linkDistance(50)
     .size([width, height]);
 
+/*
+var vis = d3.select("#chart")
+  .append("svg:svg")
+    .attr("width", w)
+    .attr("height", h)
+    .attr("pointer-events", "all")
+  .append('svg:g')
+    .call(d3.behavior.zoom().on("zoom", redraw))
+  .append('svg:g');
 
-var svgContainer = d3.select("#chart").append("svg")
+vis.append('svg:rect')
+    .attr('width', w)
+    .attr('height', h)
+    .attr('fill', 'white');
+
+*/
+
+var svgContainer = d3.select("#chart").append("svg:svg")
       .attr("width", width)
       .attr("height", height)
     .attr("pointer-events", "all")
   .append('svg:g')
     .call(d3.behavior.zoom().on("zoom", redraw))
 
+
 var svgG = svgContainer.append("svg:g");
 
+
+svgG.append('svg:rect')
+    .attr('width', width)
+    .attr('height', height)
+    .attr('fill', 'black');
 
 /*d3.select("body").onmousemove = function() {
   console.log("movement");
@@ -62,24 +88,35 @@ var svgG = svgContainer.append("svg:g");
 
 drawXHairs(width/2,height/2);
 
- 
 
-// svgG.on("mousemove", function() {
-//   var d=this;
-//   //console.log(d)
-//   return;
-//   var x_center = width / 2;
-//   var y_center = height / 2;
+svgG.on("mousemove", function() {
 
-//   var dx = d.x - x_center;
-//   var dy = d.y - y_center;
+  fisheye.center(d3.mouse(this));
 
-//   svgG.selectAll('.node')
-//     .update()
-//       .attr('cx', function(curr) { return curr.x - dx }) // x attribute
-//       .attr('cy', function(curr) { return curr.y - dy })
 
-// });
+  var d=this;
+
+  svgG.selectAll('.node')
+  .each(function(d) { d.display = fisheye(d); })
+  .attr("r", function(d) { return d.display.z * 4.5; });
+
+  //console.log(d)
+  return;/*
+  var x_center = width / 2;
+  var y_center = height / 2;
+
+  var dx = d.x - x_center;
+  var dy = d.y - y_center;
+
+  svgG.selectAll('.node')
+    .update()
+    .each(function(d) { d.display = fisheye(d); })
+    
+      .attr('cx', function(curr) { return curr.x - dx }) // x attribute
+      .attr('cy', function(curr) { return curr.y - dy })
+      .attr("r", function(d) { return d.display.z * 4.5; });*/
+
+});
 
 d3.json("data.json", function(error, graph) {
   force
@@ -100,7 +137,16 @@ d3.json("data.json", function(error, graph) {
       .attr("class", "node")
       .attr("r", 5)
       .style("fill", function(d) { return color(d.group); })
-      .call(force.drag);
+    //  .call(force.drag);
+  
+  /*var node = svgG.selectAll(".node")
+      .data(graph.nodes)
+    .enter().append("circle")
+      .on("mouseover", translate)
+      .attr("class", "node")
+      .attr("r", 5)
+      .style("fill", function(d) { return color(d.group); })
+    //  .call(force.drag);*/
 
   node.append("title")
       .text(function(d) { return d.name; });
@@ -139,6 +185,7 @@ svgContainer.append("line")
 function translate() {
   // pan that node to the center
   var x = this.cx.animVal.value, y = this.cy.animVal.value;
+ // d3.select(this).transition().attr("r",7)
   pan[0] = -x;
   pan[1] = -y;
   console.log(width/2,height/2)
@@ -152,18 +199,21 @@ function redraw() {
     // zoom
     trans = d3.event.translate;
     scale = d3.event.scale;
-    console.log(scale);
   }
-  console.log(scale);
+  console.log(trans);
   var translate = [
      pan[0] + width/scale/2,
     pan[1] + height/scale/2
   ];
+/*
+translate = [
+     trans[0],trans[1],
+  ];
+*/
 
-  svgG.transition().attr("transform",
+  svgG.transition().ease("linear").attr("transform",
       "scale(" + scale + ") "
       + "translate(" + translate + ")");
-  console.log("trans:", translate);
   /*
   svgContainer.transition().attr("transform",
       "translate(" + translate + ")"
@@ -171,66 +221,5 @@ function redraw() {
       */
 }
 
-Leap.loop(function(frame) {
-  //ctx.clearRect(-canvas.width/2,-canvas.height,canvas.width,canvas.height);
-
-  var fingerIds = {};
-  var handIds = {};
-  if (frame.hands === undefined ) { 
-    var handsLength = 0 
-  } else {
-    var handsLength = frame.hands.length;
-  }
-
-  for (var handId = 0, handCount = handsLength; handId != handCount; handId++) {
-    var hand = frame.hands[handId];
-    var posX = (hand.palmPosition[0]*3);
-    var posY = (hand.palmPosition[1]*3);
-    var posZ = (hand.palmPosition[2]*3);
-    console.log(hand);
-
-    // if(posZ/100 > 6 || posZ/100 < .3){
-    //    console.log("default");
-    //    svgG.transition().attr("transform",
-    //   "scale(" + 1 + ") ");
-    // } else {
-    //   console.log("zooming");
-    //    svgG.transition().attr("transform",
-    //   "scale(" + Math.abs(posZ/100) + ") ");
-    // }
-    
-
-    // create a jQuery event
-    e = $.Event('mousemove');
-
-    // set coordinates
-    // e.pageX = parseInt(Math.abs(posX));
-    // e.pageY = parseInt(Math.abs(posZ));
-    e.pageX = -118.478515625;
-    e.pageY = -53.571258544921875;
-
-    // trigger event - must trigger on document
-    $(document).trigger(e);
-
-   
-
-    console.log(posZ);
-    console.log(posZ/100.00)
-
-    // var d=this;
-    // console.log(d)
-    return;
-    var x_center = width / 2;
-    var y_center = height / 2;
-
-    var dx = posX - x_center;
-    var dy = posY - y_center;
-
-    svgG.selectAll('.node')
-        .attr('cx', function(curr) { return curr.x - dx }) // x attribute
-        .attr('cy', function(curr) { return curr.y - dy })
-
-  }
-});
 </script>
 
